@@ -9,11 +9,11 @@ namespace RelayServer.Controllers
 {
     class CON_JoinSession : Controller
     {
-        public override void Execute(Relay server, TcpClient client, List<TcpClient> session, Message message)
+        public override void Execute(Relay server, Relay.Client client, Relay.Session session, Message message)
         {
             if (session != null) throw new Relay.UnexpectedSessionException();
 
-            server.AddToSession(message.session, client);
+            server.AddToSession(Convert.ToUInt32(message.body), client);
         }
     }
 }

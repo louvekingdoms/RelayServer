@@ -11,6 +11,8 @@ namespace RelayServer
     {
         static void Main(string[] args)
         {
+            Console.WriteLine("Relay server booting");
+
             new Relay(LOCAL_ADDR, PORT).WaitUntilDeath().Wait();
             Console.WriteLine("Relay server task terminated.");
             Console.ReadKey();

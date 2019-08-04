@@ -8,13 +8,11 @@ using System.Text;
 
 namespace RelayServer.Controllers
 {
-    class CON_LeaveSession : Controller
+    class CON_HeartBeat : Controller
     {
         public override void Execute(Relay server, Relay.Client client, Relay.Session session, Message message)
         {
-            if (session == null) throw new Relay.MissingSessionException(message);
-
-            server.RemoveFromSession(message.session, client);
+            client.lastHeartBeat = ((int)new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds()) % int.MaxValue;
         }
     }
 }
