@@ -1,0 +1,30 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.28307.757
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RelayServer", "RelayServer\RelayServer.csproj", "{B4E58C6D-ABFF-44CB-A8BC-EB2144354FEA}"
+EndProject
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "KingdomsSharedCode", "..\KingdomsSharedCode\KingdomsSharedCode\KingdomsSharedCode.shproj", "{1774FBC0-C4C5-4FCE-979A-5542C86907C4}"
+EndProject
+Global
+	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		..\KingdomsSharedCode\KingdomsSharedCode\KingdomsSharedCode.projitems*{1774fbc0-c4c5-4fce-979a-5542c86907c4}*SharedItemsImports = 13
+	EndGlobalSection
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B4E58C6D-ABFF-44CB-A8BC-EB2144354FEA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B4E58C6D-ABFF-44CB-A8BC-EB2144354FEA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B4E58C6D-ABFF-44CB-A8BC-EB2144354FEA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B4E58C6D-ABFF-44CB-A8BC-EB2144354FEA}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {EC0B3978-6D19-4A00-9323-FAC64B8674F9}
+	EndGlobalSection
+EndGlobal
