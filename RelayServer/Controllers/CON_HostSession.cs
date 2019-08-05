@@ -11,7 +11,7 @@ namespace RelayServer.Controllers
     {
         const int C_SESSION_INFO = 0;
 
-        public override void Execute(Relay server, Relay.Client client, Relay.Session session, Message message)
+        public override void Execute(Relay server, Client client, Session session, Message message)
         {
             if (session != null) throw new Relay.UnexpectedSessionException();
 

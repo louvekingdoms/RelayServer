@@ -9,7 +9,7 @@ namespace RelayServer.Controllers
 {
     class CON_JoinSession : Controller
     {
-        public override void Execute(Relay server, Relay.Client client, Relay.Session session, Message message)
+        public override void Execute(Relay server, Client client, Session session, Message message)
         {
             if (session != null) throw new Relay.UnexpectedSessionException();
 

@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 
 using KingdomsSharedCode.Networking;
 using KingdomsSharedCode.Generic;
+using static KingdomsSharedCode.Generic.Logger;
 using System.Threading;
 
 namespace RelayServer
@@ -23,111 +24,9 @@ namespace RelayServer
         public class UnexpectedSessionException : Exception { }
         public class MalformedRequestException : Exception { }
         public class MissingSessionException : Exception { public MissingSessionException(object data) : base(data.ToString()) { } }
-
-        public class Session
-        {
-            public uint id;
-
-            List<Client> clients = new List<Client>();
-
-            public Session(Client client)
-            {
-                Add(client);
-            }
-
-            public bool Contains(Client client)
-            {
-                return clients.Contains(client);
-            }
-
-            public void Add(Client client)
-            {
-                clients.Add(client);
-                client.session = this;
-            }
-
-            public void Clean(int time)
-            {
-                foreach (var client in clients)
-                    if (client.HasTimedOut(time))
-                    {
-                        Kill(client);
-                    }
-            }
-
-            public bool IsEmpty()
-            {
-                return clients.Count <= 0;
-            }
-
-            public void Remove(Client client)
-            {
-                clients.RemoveAll(o => o == client);
-                client.session = null;
-            }
-
-            public void Kill(Client client)
-            {
-                Remove(client);
-                client.Die();
-            }
-        }
-
-        public class Client
-        {
-            public Socket tcp;
-            public Thread thread;
-            public Session session;
-            public int lastHeartBeat = ((int)new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds()) % int.MaxValue;
-            
-            public Client(Socket tcp)
-            {
-                OnMessageReception += delegate { };
-
-                thread = new Thread((ThreadStart)delegate {
-                    while (Receive()){}
-                });
-                thread.Start();
-                this.tcp = tcp;
-            }
-
-            public void Die()
-            {
-                Console.WriteLine("Client " + tcp + " died");
-                tcp.Dispose();
-                session = null;
-            }
-
-            public bool HasTimedOut(int newTime)
-            {
-                return (newTime - lastHeartBeat > HEARTBEAT_TIMEOUT);
-            }
-
-            bool Receive()
-            {
-                try
-                {
-                    using (NetworkStream clientStream = tcp.NewStream())
-                        if (clientStream.DataAvailable)
-                            using (BinaryReader reader = new BinaryReader(clientStream, Encoding.UTF8, leaveOpen: true))
-                            {
-                                var msg = new Message(reader);
-                                OnMessageReception(msg);
-                            }
-
-                    return true;
-                }
-                catch(ObjectDisposedException)
-                {
-                    return false;
-                }
-            }
-
-            public Action<Message> OnMessageReception;
-        }
-
+        
         Dictionary<uint, Session> sessions = new Dictionary<uint, Session>();
-        List<Client> homelessClients = new List<Client>();
+        List<Client> clients = new List<Client>();
 
         TcpListener listener;
         List<uint> availableSessionIds = new List<uint>();
@@ -141,7 +40,7 @@ namespace RelayServer
             listener = new TcpListener(localAddress, port);
 
             listener.Start();
-            Console.WriteLine("Listening on " + localAddress + ":" + port);
+            Info("Listening on " + localAddress + ":" + port);
 
             listener.BeginAcceptSocket(OnClientConnect, null);
         }
@@ -158,6 +57,8 @@ namespace RelayServer
         void ReceiveMessage(Client client, Message message)
         {
             Session session;
+
+            Trace("Received message: " + message);
 
             try
             {
@@ -182,22 +83,20 @@ namespace RelayServer
         void CleanClients()
         {
             var time = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds()%int.MaxValue;
-
-            foreach (var sess in sessions.Values.ToList())
-            {
-                sess.Clean((int)time);
-                if (sess.IsEmpty())
-                {
-                    sessions.Remove(sess.id);
-                }
-            }
-
-            foreach (var client in homelessClients.ToArray())
+            
+            foreach (var client in clients.ToArray())
             {
                 if (client.HasTimedOut((int)time))
                 {
-                    client.Die();
-                    homelessClients.Remove(client);
+                    try
+                    {
+                        if (client.session != null)
+                            client.session.Remove(client);
+
+                        client.Die();
+                    }
+                    catch { }
+                    clients.Remove(client);
                 }
             
             }
@@ -208,10 +107,10 @@ namespace RelayServer
 
             Socket worker = listener.EndAcceptSocket(asyn);
 
-            Console.WriteLine("Received connection from " + ((IPEndPoint)worker.RemoteEndPoint).Address);
+            Debug("Received connection from " + ((IPEndPoint)worker.RemoteEndPoint).Address);
 
             var client = new Client(worker);
-            homelessClients.Add(client);
+            clients.Add(client);
             client.OnMessageReception += (msg) => { ReceiveMessage(client, msg); };
 
             listener.BeginAcceptSocket(new AsyncCallback(OnClientConnect), null);
@@ -223,7 +122,7 @@ namespace RelayServer
             if (session == 0) return null;
 
             if (!sessions.ContainsKey(session))
-                throw new UnknownSessionException("Client "+worker+" tried to get session "+session+" which does NOT exist");
+                throw new UnknownSessionException("Client "+worker+" tried to get session "+session.ToString("X2")+" which does NOT exist");
             
             var verifiedSession = sessions[session];
             if (verifiedSession.Contains(worker))
@@ -244,30 +143,28 @@ namespace RelayServer
         {
 
             if (availableSessionIds.Contains(id))
-                throw new Exception("Something went very wrong: Released session " + id + ", but it had already been released.");
+                throw new Exception("Something went very wrong: Released session " + id.ToString("X2") + ", but it had already been released.");
 
             sessions.Remove(id);
             availableSessionIds.Add(id);
 
-            Console.WriteLine("Released session " + id.ToString("X"));
+            Debug("Released session " + id.ToString("X"));
         }
 
         public void AddToSession(uint id, Client client)
         {
-            if (sessions[id] == null) throw new UnknownSessionException("Client "+client+" wants to be added to session " + id + " which does NOT exist");
-            if (sessions[id].Contains(client)) throw new UnexpectedSessionException(); 
+            if (sessions[id] == null) throw new UnknownSessionException("Client "+client+" wants to be added to session " + id.ToString("X2") + " which does NOT exist");
+            if (sessions[id].Contains(client)) throw new InvalidSessionException(); 
 
             sessions[id].Add(client);
-            homelessClients.Remove(client);
         }
 
         public void RemoveFromSession(uint id, Client client)
         {
-            if (sessions[id] == null) throw new UnknownSessionException("Client " + client + " wants to be removed from session " + id + " which does NOT exist");
+            if (sessions[id] == null) throw new UnknownSessionException("Client " + client + " wants to be removed from session " + id.ToString("X2") + " which does NOT exist");
             if (!sessions[id].Contains(client)) throw new InvalidSessionException();
 
             sessions[id].Remove(client);
-            homelessClients.Add(client);
 
             if (sessions[id].IsEmpty())
                 ReleaseSession(id);
@@ -280,7 +177,7 @@ namespace RelayServer
             try { origin = ((IPEndPoint)client.RemoteEndPoint).Address.ToString(); }
             catch (ObjectDisposedException) { }
 
-            Console.WriteLine(string.Format("FROM: {4}  [SES {1}]  [BEAT {2}]  {0}> {3}",
+            Debug(string.Format("FROM: {4}  [SES {1}]  [BEAT {2}]  {0}> {3}",
                 controller.GetType().Name.ToUpper(),
                 message.session.ToString("X8"),
                 message.beat,
