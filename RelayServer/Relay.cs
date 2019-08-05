@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 
 using KingdomsSharedCode.Networking;
 using KingdomsSharedCode.Generic;
+using System.Threading;
 
 namespace RelayServer
 {
@@ -45,26 +46,12 @@ namespace RelayServer
                 client.session = this;
             }
 
-            public Client[] GetClients()
-            {
-                return clients.ToArray();
-            }
-
             public void Clean(int time)
             {
-                foreach (var client in GetClients())
+                foreach (var client in clients)
                     if (client.HasTimedOut(time))
                     {
-
-                        // Logging////////////////////////////////////////////
-                        var origin = "<client killed>";
-                        try { origin = ((IPEndPoint)client.tcp.RemoteEndPoint).Address.ToString(); }
-                        catch (ObjectDisposedException) { }
-                        Console.WriteLine("Destroying client " + origin);
-                        //////////////////////////////////////////////////////
-
                         Kill(client);
-
                     }
             }
 
@@ -89,8 +76,20 @@ namespace RelayServer
         public class Client
         {
             public Socket tcp;
+            public Thread thread;
             public Session session;
             public int lastHeartBeat = ((int)new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds()) % int.MaxValue;
+            
+            public Client(Socket tcp)
+            {
+                OnMessageReception += delegate { };
+
+                thread = new Thread((ThreadStart)delegate {
+                    while (Receive()){}
+                });
+                thread.Start();
+                this.tcp = tcp;
+            }
 
             public void Die()
             {
@@ -103,6 +102,28 @@ namespace RelayServer
             {
                 return (newTime - lastHeartBeat > HEARTBEAT_TIMEOUT);
             }
+
+            bool Receive()
+            {
+                try
+                {
+                    using (NetworkStream clientStream = tcp.NewStream())
+                        if (clientStream.DataAvailable)
+                            using (BinaryReader reader = new BinaryReader(clientStream, Encoding.UTF8, leaveOpen: true))
+                            {
+                                var msg = new Message(reader);
+                                OnMessageReception(msg);
+                            }
+
+                    return true;
+                }
+                catch(ObjectDisposedException)
+                {
+                    return false;
+                }
+            }
+
+            public Action<Message> OnMessageReception;
         }
 
         Dictionary<uint, Session> sessions = new Dictionary<uint, Session>();
@@ -127,66 +148,34 @@ namespace RelayServer
 
         public async Task WaitUntilDeath()
         {
-            while (listener != null)
+            while (true)
             {
                 CleanClients();
-
-                foreach (var sess in sessions.Values.ToList())
-                {
-                    foreach (var client in sess.GetClients())
-                    {
-                        ReceiveData(client);
-                    }
-                }
-
-                foreach (var client in homelessClients)
-                    ReceiveData(client);
+                await Task.Delay(1000);
             }
         }
 
-        void ReceiveData(Client client)
+        void ReceiveMessage(Client client, Message message)
         {
-            using (NetworkStream nwStream = client.tcp.NewStream())
+            Session session;
+
+            try
             {
-                if (!nwStream.CanRead || !nwStream.DataAvailable)
-                    return;
+                session = FindSession(message.session, client);
+            }
+            catch (InvalidSessionException e) { throw new Exception(e.ToString()); }
+            catch (UnknownSessionException e) { throw new Exception(e.ToString()); }
 
-                byte[] buffer = new byte[client.tcp.ReceiveBufferSize];
-                int bytesRead = nwStream.Read(buffer, 0, client.tcp.ReceiveBufferSize);
-
-                if (bytesRead <= 0)
-                    return;
-
-
-                Message message;
-                Session session;
-
-                try
-                {
-                    message = MakeMessage(buffer, bytesRead);
-                }
-                catch (BrokenMessageException e) { throw new Exception(e.ToString()); }
-
-                //Console.WriteLine("RAW MESSAGE: " + message);
-
-                try
-                {
-                    session = FindSession(message.session, client);
-                }
-                catch (InvalidSessionException e) { throw new Exception(e.ToString()); }
-                catch (UnknownSessionException e) { throw new Exception(e.ToString()); }
-
-                // Controller execution
-                if (ControllerSet.set.ContainsKey(message.controller))
-                {
-                    ControllerSet.set[message.controller].Execute(this, client, session, message);
-                    LogAction(ControllerSet.set[message.controller], client.tcp, message);
-                }
-                else
-                {
-                    ControllerSet.relay.Execute(this, client, session, message);
-                    LogAction(this, client.tcp, message);
-                }
+            // Controller execution
+            if (ControllerSet.set.ContainsKey(message.controller))
+            {
+                ControllerSet.set[message.controller].Execute(this, client, session, message);
+                LogAction(ControllerSet.set[message.controller], client.tcp, message);
+            }
+            else
+            {
+                ControllerSet.relay.Execute(this, client, session, message);
+                LogAction(this, client.tcp, message);
             }
         }
 
@@ -218,13 +207,16 @@ namespace RelayServer
         {
 
             Socket worker = listener.EndAcceptSocket(asyn);
-            
+
             Console.WriteLine("Received connection from " + ((IPEndPoint)worker.RemoteEndPoint).Address);
 
-            homelessClients.Add(new Client() { tcp = worker });
+            var client = new Client(worker);
+            homelessClients.Add(client);
+            client.OnMessageReception += (msg) => { ReceiveMessage(client, msg); };
 
             listener.BeginAcceptSocket(new AsyncCallback(OnClientConnect), null);
         }
+
 
         Session FindSession(uint session, Client worker)
         {
@@ -238,23 +230,6 @@ namespace RelayServer
                 return verifiedSession;
 
             throw new InvalidSessionException();
-        }
-
-        Message MakeMessage(byte[] buffer, int bytesRead)
-        {
-
-            Message message;
-            try
-            {
-                message = new Message(buffer, bytesRead);
-                message.Check();
-            }
-            catch(BrokenMessageException e)
-            {
-                throw new BrokenMessageException();
-            }
-
-            return message;
         }
 
         public uint CreateSession(Client client)
