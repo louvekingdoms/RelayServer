@@ -8,17 +8,20 @@ using System.Threading;
 
 using static KingdomsSharedCode.Generic.Logger;
 using static RelayServer.Config;
+using static RelayServer.Relay;
 
 namespace RelayServer
 {
-
-
     public class Client
     {
         public Socket tcp;
         public Thread thread;
         public Session session;
         public int lastHeartBeat = ((int)new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds()) % int.MaxValue;
+        public ushort clockBeat = 0;
+
+        bool isPaused = false;
+        uint internalId = 0;
 
         public Client(Socket tcp)
         {
@@ -29,6 +32,54 @@ namespace RelayServer
             });
             thread.Start();
             this.tcp = tcp;
+        }
+
+        public bool IsPaused()
+        {
+            return isPaused;
+        }
+
+        public void Pause()
+        {
+            if (!isPaused)
+            {
+                using (var stream = tcp.NewStream())
+                {
+                    stream.Write(new Message()
+                    {
+                        controller = (byte)KingdomsSharedCode.Networking.Controller.WAIT
+                    });
+                }
+            }
+            isPaused = true;
+        }
+
+        public void Unpause()
+        {
+            if (isPaused)
+            {
+                using (var stream = tcp.NewStream())
+                {
+                    stream.Write(new Message()
+                    {
+                        controller = (byte)KingdomsSharedCode.Networking.Controller.GO
+                    });
+                }
+            }
+            isPaused = false;
+        }
+
+        public uint GetId()
+        {
+            if (session == null)
+                throw new MissingSessionException("Requested id of client " + this + " but doesnt belong to any session");
+
+            return internalId;
+        }
+
+        public void SetId(uint id)
+        {
+            this.internalId = id;
         }
 
         public void Die()

@@ -9,12 +9,27 @@ namespace RelayServer
     public class Session
     {
         public uint id;
+        public ushort lowestClock { get { return GetLowestClock() ; } }
 
         List<Client> clients = new List<Client>();
 
-        public Session(Client client)
+        public Session(uint id, Client client)
         {
+            this.id = id;
             Add(client);
+        }
+
+        public ushort GetLowestClock()
+        {
+            ushort lowest = ushort.MaxValue;
+            foreach(var client in clients)
+            {
+                if (client.clockBeat < lowest)
+                {
+                    lowest = client.clockBeat;
+                }
+            }
+            return lowest;
         }
 
         public bool Contains(Client client)
@@ -26,16 +41,15 @@ namespace RelayServer
         {
             clients.Add(client);
             client.session = this;
-        }
-
-        public void Clean(int time)
-        {
-            foreach (var client in clients.ToArray())
-                if (client.HasTimedOut(time))
+            uint id = 0;
+            foreach(var cl in clients)
+            {
+                if (cl.GetId() > id)
                 {
-                    Debug("Killing sessionized client " + client);
-                    Kill(client);
+                    id = cl.GetId() + 1;
                 }
+            }
+            client.SetId(id);
         }
 
         public Client[] GetClients()
@@ -58,6 +72,11 @@ namespace RelayServer
         {
             Remove(client);
             client.Die();
+        }
+
+        public override string ToString()
+        {
+            return string.Format("Session.{0}", id.ToString("X"));
         }
     }
 }

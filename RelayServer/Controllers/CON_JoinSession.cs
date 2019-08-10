@@ -1,4 +1,7 @@
 ﻿using KingdomsSharedCode.Networking;
+using KingdomsSharedCode.JSON;
+
+using static KingdomsSharedCode.Generic.Logger;
 
 using System;
 using System.Collections.Generic;
@@ -13,7 +16,28 @@ namespace RelayServer.Controllers
         {
             if (session != null) throw new Relay.UnexpectedSessionException();
 
-            server.AddToSession(Convert.ToUInt32(message.body), client);
+            var sessionId = Convert.ToUInt32(message.body);
+            var targetSession = server.GetSession(sessionId);
+
+            if (targetSession == null) throw new Relay.UnknownSessionException(sessionId);
+
+            var newJSON = new JSONObject();
+            newJSON.Add("session", targetSession.id);
+            newJSON.Add("beat", targetSession.GetLowestClock());
+
+            server.AddToSession(sessionId, client);
+
+            Warn("Told client to start at beat " + client.session.GetLowestClock());
+            
+            using (var stream = client.tcp.NewStream())
+            {
+                stream.Write(new Message()
+                {
+                    beat = 0,
+                    controller = (byte)KingdomsSharedCode.Networking.Controller.SESSION_INFO,
+                    body = newJSON.ToString()
+                });
+            }
         }
     }
 }

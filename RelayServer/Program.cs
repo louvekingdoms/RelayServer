@@ -14,7 +14,8 @@ namespace RelayServer
         {
             Info("Relay server booting");
 
-            new Relay(LOCAL_ADDR, PORT).WaitUntilDeath().Wait();
+            new Relay(LOCAL_ADDR, PORT, directMode:true).WaitUntilDeath().Wait();
+
             Info("Relay server task terminated.");
             Console.ReadKey();
         }

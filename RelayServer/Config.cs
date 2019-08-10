@@ -11,5 +11,6 @@ namespace RelayServer
         public const uint MASTER_KEY = 123456789;
         public const int MAX_SESSIONS = 2000;
         public const int HEARTBEAT_TIMEOUT = 4; // seconds
+        public const byte MAXIMUM_BEAT_DIFFERENCE = 2;
     }
 }

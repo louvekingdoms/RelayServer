@@ -18,23 +18,27 @@ namespace RelayServer
     public class Relay
     {
         class BrokenMessageException : Exception { }
-        class UnknownSessionException : Exception { public UnknownSessionException(object data) : base(data.ToString()) { } }
-        class InvalidSessionException : Exception { }
 
+        public class UnknownSessionException : Exception { public UnknownSessionException(object data) : base(data.ToString()) { } }
+        public class InvalidSessionException : Exception { }
         public class UnexpectedSessionException : Exception { }
         public class MalformedRequestException : Exception { }
         public class MissingSessionException : Exception { public MissingSessionException(object data) : base(data.ToString()) { } }
-        
+
+        public bool directMode = false;
+
         Dictionary<uint, Session> sessions = new Dictionary<uint, Session>();
         List<Client> clients = new List<Client>();
 
         TcpListener listener;
         List<uint> availableSessionIds = new List<uint>();
 
-        public Relay(string address, int port)
+        public Relay(string address, int port, bool directMode)
         {
             for (uint i = 1; i < MAX_SESSIONS; i++)
                 availableSessionIds.Add(i);
+
+            if (directMode) availableSessionIds = new List<uint>() { 1 };
 
             IPAddress localAddress = IPAddress.Parse(address);
             listener = new TcpListener(localAddress, port);
@@ -91,12 +95,16 @@ namespace RelayServer
                     try
                     {
                         if (client.session != null)
-                            client.session.Remove(client);
+                        {
+                            Trace("Destroying client " + client + " from session "+client.session);
+                            RemoveFromSession(client.session.id, client);
+                        }
 
                         client.Die();
                     }
                     catch { }
                     clients.Remove(client);
+                    Trace("Destroyed client " + client + " (time out)");
                 }
             
             }
@@ -114,6 +122,16 @@ namespace RelayServer
             client.OnMessageReception += (msg) => { ReceiveMessage(client, msg); };
 
             listener.BeginAcceptSocket(new AsyncCallback(OnClientConnect), null);
+        }
+
+        public Session GetSession(uint session)
+        {
+            if (session == 0) return null;
+
+            if (!sessions.ContainsKey(session))
+                throw new UnknownSessionException("Tried to get session " + session.ToString("X2") + " which does NOT exist");
+
+            return sessions[session];
         }
 
 
@@ -135,7 +153,10 @@ namespace RelayServer
         {
             uint id = availableSessionIds.PickRandom();
             availableSessionIds.Remove(id);
-            sessions.Add(id, new Session(client));
+
+            sessions.Add(id, new Session(id, client));
+
+            Debug("Mobilized session " + id.ToString("X"));
             return id;
         }
 
@@ -165,6 +186,7 @@ namespace RelayServer
             if (!sessions[id].Contains(client)) throw new InvalidSessionException();
 
             sessions[id].Remove(client);
+            Trace("Removed client from " + sessions[id] + ", remaining " + sessions[id].GetClients().Count() + " clients");
 
             if (sessions[id].IsEmpty())
                 ReleaseSession(id);
