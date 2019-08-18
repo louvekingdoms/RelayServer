@@ -33,6 +33,8 @@ namespace RelayServer
         TcpListener listener;
         List<uint> availableSessionIds = new List<uint>();
 
+        bool shouldRun = true;
+
         public Relay(string address, int port, bool directMode)
         {
             for (uint i = 1; i < MAX_SESSIONS; i++)
@@ -47,11 +49,13 @@ namespace RelayServer
             Info("Listening on " + localAddress + ":" + port);
 
             listener.BeginAcceptSocket(OnClientConnect, null);
+
+            SetLevel(LEVEL.DEBUG);
         }
 
         public async Task WaitUntilDeath()
         {
-            while (true)
+            while (shouldRun)
             {
                 CleanClients();
                 await Task.Delay(1000);
@@ -206,6 +210,15 @@ namespace RelayServer
                 message.body,
                 origin
             ));
+        }
+
+        public void Kill()
+        {
+            shouldRun = false;
+            foreach(var client in clients)
+            {
+                client.thread.Abort();
+            }
         }
     }
 }
