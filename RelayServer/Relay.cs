@@ -27,7 +27,7 @@ namespace RelayServer
 
         public bool directMode = false;
 
-        public static Logger logger = new Logger("RELAY");
+        public static Logger logger;
 
         Dictionary<uint, Session> sessions = new Dictionary<uint, Session>();
         List<Client> clients = new List<Client>();

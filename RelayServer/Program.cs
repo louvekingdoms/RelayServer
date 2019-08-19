@@ -5,7 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using static RelayServer.Config;
 using static RelayServer.Relay;
-using static KingdomsSharedCode.Generic.Logger;
+using KingdomsSharedCode.Generic;
 
 namespace RelayServer
 {
@@ -13,11 +13,13 @@ namespace RelayServer
     {
         static void Main(string[] args)
         {
+            logger = new Logger("RELAY");
+
             logger.Info("Relay server booting");
 
-            new Relay(LOCAL_ADDR, PORT, directMode:true).WaitUntilDeath().Wait();
-
+            new Relay(LOCAL_ADDR, PORT, directMode: true).WaitUntilDeath().Wait();
             logger.Info("Relay server task terminated.");
+
             Console.ReadKey();
         }
     }
