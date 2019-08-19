@@ -7,6 +7,8 @@ using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Text;
 
+using static RelayServer.Relay;
+
 namespace RelayServer.Controllers
 {
     class CON_HeartBeat : Controller
@@ -24,7 +26,7 @@ namespace RelayServer.Controllers
             // Pausing client if too advanced
             if (remoteBeat > session.lowestClock + Config.MAXIMUM_BEAT_DIFFERENCE && !client.IsPaused())
             {
-                Debug("Paused client from session " + session + " because too advanced (" + remoteBeat + " > " + session.lowestClock + ")");
+                logger.Debug("Paused client from session " + session + " because too advanced (" + remoteBeat + " > " + session.lowestClock + ")");
                 client.Pause();
             }
 
@@ -33,7 +35,7 @@ namespace RelayServer.Controllers
             {
                 if (cl.IsPaused() && cl.clockBeat < session.lowestClock + Config.MAXIMUM_BEAT_DIFFERENCE)
                 {
-                    Debug("Resumed client from session " + session + "(" + cl.clockBeat + " ~ " + session.lowestClock + ")");
+                    logger.Debug("Resumed client from session " + session + "(" + cl.clockBeat + " ~ " + session.lowestClock + ")");
                     cl.Unpause();
                 }
             }

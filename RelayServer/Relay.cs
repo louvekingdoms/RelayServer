@@ -27,6 +27,8 @@ namespace RelayServer
 
         public bool directMode = false;
 
+        public static Logger logger = new Logger("RELAY");
+
         Dictionary<uint, Session> sessions = new Dictionary<uint, Session>();
         List<Client> clients = new List<Client>();
 
@@ -34,7 +36,7 @@ namespace RelayServer
         List<uint> availableSessionIds = new List<uint>();
 
         bool shouldRun = true;
-
+        
         public Relay(string address, int port, bool directMode)
         {
             for (uint i = 1; i < MAX_SESSIONS; i++)
@@ -46,11 +48,12 @@ namespace RelayServer
             listener = new TcpListener(localAddress, port);
 
             listener.Start();
-            Info("Listening on " + localAddress + ":" + port);
+
+            logger.Info("Listening on " + localAddress + ":" + port);
 
             listener.BeginAcceptSocket(OnClientConnect, null);
 
-            SetLevel(LEVEL.DEBUG);
+            logger.SetLevel(LEVEL.DEBUG);
         }
 
         public async Task WaitUntilDeath()
@@ -66,7 +69,7 @@ namespace RelayServer
         {
             Session session;
 
-            Trace("Received message: " + message);
+            logger.Trace("Received message: " + message);
 
             try
             {
@@ -100,7 +103,7 @@ namespace RelayServer
                     {
                         if (client.session != null)
                         {
-                            Trace("Destroying client " + client + " from session "+client.session);
+                            logger.Trace("Destroying client " + client + " from session "+client.session);
                             RemoveFromSession(client.session.id, client);
                         }
 
@@ -108,7 +111,7 @@ namespace RelayServer
                     }
                     catch { }
                     clients.Remove(client);
-                    Trace("Destroyed client " + client + " (time out)");
+                    logger.Trace("Destroyed client " + client + " (time out)");
                 }
             
             }
@@ -119,7 +122,7 @@ namespace RelayServer
 
             Socket worker = listener.EndAcceptSocket(asyn);
 
-            Debug("Received connection from " + ((IPEndPoint)worker.RemoteEndPoint).Address);
+            logger.Debug("Received connection from " + ((IPEndPoint)worker.RemoteEndPoint).Address);
 
             var client = new Client(worker);
             clients.Add(client);
@@ -160,7 +163,7 @@ namespace RelayServer
 
             sessions.Add(id, new Session(id, client));
 
-            Debug("Mobilized session " + id.ToString("X"));
+            logger.Debug("Mobilized session " + id.ToString("X"));
             return id;
         }
 
@@ -173,7 +176,7 @@ namespace RelayServer
             sessions.Remove(id);
             availableSessionIds.Add(id);
 
-            Debug("Released session " + id.ToString("X"));
+            logger.Debug("Released session " + id.ToString("X"));
         }
 
         public void AddToSession(uint id, Client client)
@@ -190,7 +193,7 @@ namespace RelayServer
             if (!sessions[id].Contains(client)) throw new InvalidSessionException();
 
             sessions[id].Remove(client);
-            Trace("Removed client from " + sessions[id] + ", remaining " + sessions[id].GetClients().Count() + " clients");
+            logger.Trace("Removed client from " + sessions[id] + ", remaining " + sessions[id].GetClients().Count() + " clients");
 
             if (sessions[id].IsEmpty())
                 ReleaseSession(id);
@@ -203,7 +206,7 @@ namespace RelayServer
             try { origin = ((IPEndPoint)client.RemoteEndPoint).Address.ToString(); }
             catch (ObjectDisposedException) { }
 
-            Debug(string.Format("FROM: {4}  [SES {1}]  [BEAT {2}]  {0}> {3}",
+            logger.Debug(string.Format("FROM: {4}  [SES {1}]  [BEAT {2}]  {0}> {3}",
                 controller.GetType().Name.ToUpper(),
                 message.session.ToString("X8"),
                 message.beat,

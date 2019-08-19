@@ -84,7 +84,7 @@ namespace RelayServer
 
         public void Die()
         {
-            Debug("Client " + tcp + " died");
+            logger.Debug("Client " + tcp + " died");
             tcp.Dispose();
             session = null;
         }

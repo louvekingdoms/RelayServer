@@ -7,6 +7,7 @@ using System.Net.Sockets;
 using System.Text;
 
 using static KingdomsSharedCode.Generic.Logger;
+using static RelayServer.Relay;
 
 namespace RelayServer
 {
@@ -20,7 +21,7 @@ namespace RelayServer
             foreach (var cl in session.GetClients())
                 using (var stream = cl.tcp.NewStream())
                 {
-                    Trace("Broadcasting " + message);
+                    logger.Trace("Broadcasting " + message);
                     stream.Write(message);
                 }
         }

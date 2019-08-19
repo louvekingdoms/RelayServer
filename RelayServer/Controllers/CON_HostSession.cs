@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Text;
 using KingdomsSharedCode.JSON;
+using static RelayServer.Relay;
 
 namespace RelayServer.Controllers
 {
@@ -30,7 +31,7 @@ namespace RelayServer.Controllers
                 });
             }
 
-            Trace("Client " + client + " is now in session " + client.session);
+            logger.Trace("Client " + client + " is now in session " + client.session);
         }
     }
 }

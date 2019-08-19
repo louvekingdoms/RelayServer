@@ -2,6 +2,7 @@
 using KingdomsSharedCode.JSON;
 
 using static KingdomsSharedCode.Generic.Logger;
+using static RelayServer.Relay;
 
 using System;
 using System.Collections.Generic;
@@ -27,7 +28,7 @@ namespace RelayServer.Controllers
 
             server.AddToSession(sessionId, client);
 
-            Warn("Told client to start at beat " + client.session.GetLowestClock());
+            logger.Warn("Told client to start at beat " + client.session.GetLowestClock());
             
             using (var stream = client.tcp.NewStream())
             {
