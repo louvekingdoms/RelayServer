@@ -52,8 +52,6 @@ namespace RelayServer
             logger.Info("Listening on " + localAddress + ":" + port);
 
             listener.BeginAcceptSocket(OnClientConnect, null);
-
-            logger.SetLevel(LEVEL.DEBUG);
         }
 
         public async Task WaitUntilDeath()
@@ -69,7 +67,7 @@ namespace RelayServer
         {
             Session session;
 
-            logger.Trace("Received message: " + message);
+            logger.Trace("<< " + message);
 
             try
             {
@@ -82,11 +80,13 @@ namespace RelayServer
             if (ControllerSet.set.ContainsKey(message.controller))
             {
                 ControllerSet.set[message.controller].Execute(this, client, session, message);
+                logger.Trace(">> " + message);
                 LogAction(ControllerSet.set[message.controller], client.tcp, message);
             }
             else
             {
                 ControllerSet.relay.Execute(this, client, session, message);
+                logger.Trace(">> " + message);
                 LogAction(this, client.tcp, message);
             }
         }
@@ -94,7 +94,8 @@ namespace RelayServer
         void CleanClients()
         {
             var time = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds()%int.MaxValue;
-            
+            logger.Trace(string.Format("Preparing to clean {0} clients", clients.Count));
+
             foreach (var client in clients.ToArray())
             {
                 if (client.HasTimedOut((int)time))
@@ -103,7 +104,7 @@ namespace RelayServer
                     {
                         if (client.session != null)
                         {
-                            logger.Trace("Destroying client " + client + " from session "+client.session);
+                            logger.Debug("Destroying client " + client + " from session "+client.session);
                             RemoveFromSession(client.session.id, client);
                         }
 
@@ -111,7 +112,7 @@ namespace RelayServer
                     }
                     catch { }
                     clients.Remove(client);
-                    logger.Trace("Destroyed client " + client + " (time out)");
+                    logger.Debug("Destroyed client " + client + " (time out)");
                 }
             
             }
@@ -122,7 +123,7 @@ namespace RelayServer
 
             Socket worker = listener.EndAcceptSocket(asyn);
 
-            logger.Debug("Received connection from " + ((IPEndPoint)worker.RemoteEndPoint).Address);
+            logger.Debug("Accepted connection from " + ((IPEndPoint)worker.RemoteEndPoint).Address);
 
             var client = new Client(worker);
             clients.Add(client);
