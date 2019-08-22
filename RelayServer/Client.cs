@@ -28,10 +28,14 @@ namespace RelayServer
             OnMessageReception += delegate { };
 
             thread = new Thread((ThreadStart)delegate {
-                while (Receive()) { }
+                while (Receive())
+                {
+                }
+                logger.Trace("Client " + tcp.GetHashCode()+" is no longer listening.");
             });
             thread.Start();
             this.tcp = tcp;
+            logger.Debug("Client thread started for " + tcp.GetHashCode());
         }
 
         public bool IsPaused()
@@ -102,7 +106,9 @@ namespace RelayServer
                     if (clientStream.DataAvailable)
                         using (BinaryReader reader = new BinaryReader(clientStream, Encoding.UTF8, leaveOpen: true))
                         {
+                            logger.Trace("Receiving message from client " + GetHashCode());
                             var msg = new Message(reader);
+                            logger.Trace("<< " + msg);
                             OnMessageReception(msg);
                         }
 
@@ -110,6 +116,12 @@ namespace RelayServer
             }
             catch (ObjectDisposedException)
             {
+                logger.Trace("Client " + GetHashCode() + " has been disposed");
+                return false;
+            }
+            catch (Exception e)
+            {
+                logger.Error("Fatal error for client " + GetHashCode() + ": "+e.ToString());
                 return false;
             }
         }

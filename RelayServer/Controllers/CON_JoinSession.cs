@@ -32,12 +32,14 @@ namespace RelayServer.Controllers
             
             using (var stream = client.tcp.NewStream())
             {
-                stream.Write(new Message()
+                var msg = new Message()
                 {
                     beat = 0,
                     controller = (byte)KingdomsSharedCode.Networking.Controller.SESSION_INFO,
                     body = newJSON.ToString()
-                });
+                };
+                logger.Trace(">> " + msg);
+                stream.Write(msg);
             }
         }
     }

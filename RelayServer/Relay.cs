@@ -42,7 +42,11 @@ namespace RelayServer
             for (uint i = 1; i < MAX_SESSIONS; i++)
                 availableSessionIds.Add(i);
 
-            if (directMode) availableSessionIds = new List<uint>() { 1 };
+            if (directMode)
+            {
+                availableSessionIds = new List<uint>() { 1 };
+                this.directMode = directMode;
+            }
 
             IPAddress localAddress = IPAddress.Parse(address);
             listener = new TcpListener(localAddress, port);
@@ -60,14 +64,18 @@ namespace RelayServer
             {
                 CleanClients();
                 await Task.Delay(1000);
+                if (directMode && clients.Count < 1)
+                {
+                    // Headless server
+                    logger.Info("Relay is in directMode and headless. Exiting.");
+                    break;
+                }
             }
         }
 
         void ReceiveMessage(Client client, Message message)
         {
             Session session;
-
-            logger.Trace("<< " + message);
 
             try
             {
@@ -80,14 +88,10 @@ namespace RelayServer
             if (ControllerSet.set.ContainsKey(message.controller))
             {
                 ControllerSet.set[message.controller].Execute(this, client, session, message);
-                logger.Trace(">> " + message);
-                LogAction(ControllerSet.set[message.controller], client.tcp, message);
             }
             else
             {
                 ControllerSet.relay.Execute(this, client, session, message);
-                logger.Trace(">> " + message);
-                LogAction(this, client.tcp, message);
             }
         }
 
@@ -200,24 +204,9 @@ namespace RelayServer
                 ReleaseSession(id);
         }
 
-        void LogAction(object controller, Socket client, Message message)
-        {
-            var origin = "<client killed>";
-
-            try { origin = ((IPEndPoint)client.RemoteEndPoint).Address.ToString(); }
-            catch (ObjectDisposedException) { }
-
-            logger.Debug(string.Format("FROM: {4}  [SES {1}]  [BEAT {2}]  {0}> {3}",
-                controller.GetType().Name.ToUpper(),
-                message.session.ToString("X8"),
-                message.beat,
-                message.body,
-                origin
-            ));
-        }
-
         public void Kill()
         {
+            logger.Info("Termination request for Relay server, killing all clients.");
             shouldRun = false;
             foreach(var client in clients)
             {
