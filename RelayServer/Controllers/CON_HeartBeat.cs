@@ -7,6 +7,8 @@ using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Text;
 
+using KingdomsSharedCode.JSON;
+
 using static RelayServer.Relay;
 
 namespace RelayServer.Controllers
@@ -15,10 +17,13 @@ namespace RelayServer.Controllers
     {
         public override void Execute(Relay server, Client client, Session session, Message message)
         {
-            ushort remoteBeat = Convert.ToUInt16(message.body);
+            var body = JSON.Parse(message.body);
+            
+            ushort remoteBeat = Convert.ToUInt16(body["beat"].AsInt);
 
             client.lastHeartBeat = ((int)new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds()) % int.MaxValue;
             client.clockBeat = remoteBeat;
+            client.AddSumAtBeat(body["sum"]);
 
             // Below are Synchron operations - only valid when in a session
             if (session == null) return;

@@ -20,6 +20,9 @@ namespace RelayServer
         public int lastHeartBeat = ((int)new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds()) % int.MaxValue;
         public ushort clockBeat = 0;
 
+        // WILL LEAK
+        public Dictionary<ushort, string> sumAtBeat = new Dictionary<ushort, string>(); 
+
         bool isPaused = false;
         uint internalId = 0;
 
@@ -103,15 +106,12 @@ namespace RelayServer
             try
             {
                 using (NetworkStream clientStream = tcp.NewStream())
-                    if (clientStream.DataAvailable)
-                        using (BinaryReader reader = new BinaryReader(clientStream, Encoding.UTF8, leaveOpen: true))
-                        {
-                            logger.Trace("Receiving message from client " + GetHashCode());
-                            var msg = new Message(reader);
-                            logger.Trace("<< " + msg);
-                            OnMessageReception(msg);
-                        }
-
+                {
+                    logger.Trace("Receiving message from client " + GetHashCode());
+                    var msg = new Message(clientStream.ReadMessageData());
+                    logger.Trace("<< " + msg);
+                    OnMessageReception(msg);
+                }
                 return true;
             }
             catch (ObjectDisposedException)
@@ -124,6 +124,11 @@ namespace RelayServer
                 logger.Error("Fatal error for client " + GetHashCode() + ": "+e.ToString());
                 return false;
             }
+        }
+
+        public void AddSumAtBeat(string sum)
+        {
+            sumAtBeat[clockBeat] = sum;
         }
 
         public Action<Message> OnMessageReception;
